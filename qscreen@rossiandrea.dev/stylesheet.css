@@ -1,0 +1,102 @@
+.qscreen-overlay {
+  background-color: rgba(0, 0, 0, 0.35);
+}
+
+.qscreen-panel {
+  background-color: rgba(36, 36, 40, 0.97);
+  border-radius: 18px;
+  padding: 18px 22px;
+  spacing: 6px;
+}
+
+.qscreen-section-title {
+  color: #c0bfbc;
+  font-weight: bold;
+  font-size: 11pt;
+  margin: 12px 4px 8px 4px;
+}
+
+.qscreen-tabbar {
+  spacing: 6px;
+  margin-bottom: 4px;
+}
+
+.qscreen-tab {
+  color: #c0bfbc;
+  font-weight: bold;
+  padding: 5px 16px;
+  border-radius: 99px;
+}
+
+.qscreen-tab:hover {
+  background-color: rgba(255, 255, 255, 0.10);
+}
+
+.qscreen-tab:checked {
+  color: #ffffff;
+  background-color: #3584e4;
+}
+
+.qscreen-hint,
+.qscreen-empty {
+  color: #9a9996;
+  font-size: 9pt;
+  margin-top: 8px;
+}
+
+.qscreen-empty {
+  margin: 24px 4px;
+  font-size: 10pt;
+}
+
+.qscreen-tile {
+  padding: 8px;
+  border-radius: 12px;
+  border: 2px solid transparent;
+}
+
+.qscreen-tile:hover,
+.qscreen-tile:focus {
+  background-color: rgba(255, 255, 255, 0.10);
+}
+
+.qscreen-tile:checked,
+.qscreen-tile:active {
+  border-color: #62a0ea;
+}
+
+.qscreen-tile-label {
+  color: #ffffff;
+  font-size: 9pt;
+  margin-top: 6px;
+}
+
+.qscreen-preview {
+  background-color: rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+}
+
+.qscreen-preview-cell {
+  background-color: #62a0ea;
+  border-radius: 3px;
+}
+
+.qscreen-ghost {
+  background-color: rgba(98, 160, 234, 0.28);
+  border: 2px solid rgba(98, 160, 234, 0.95);
+  border-radius: 12px;
+  padding: 8px;
+}
+
+.qscreen-ghost-empty {
+  background-color: rgba(255, 255, 255, 0.06);
+  border: 2px dashed rgba(255, 255, 255, 0.45);
+}
+
+.qscreen-ghost-label {
+  color: #ffffff;
+  font-weight: bold;
+  font-size: 11pt;
+  margin-top: 8px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}

@@ -1,0 +1,10 @@
+{
+  "uuid": "qscreen@rossiandrea.dev",
+  "name": "QScreen",
+  "description": "Tile the open windows into grids from 1x2 up to 4x4 and mixed layouts (2+1+3, main + stack…), from the panel menu, an overlay picker or keyboard shortcuts.",
+  "shell-version": ["49", "50"],
+  "settings-schema": "org.gnome.shell.extensions.qscreen",
+  "gettext-domain": "qscreen",
+  "version-name": "0.1.0",
+  "url": "https://github.com/RedsAnDev/Fedora-QScreen"
+}

@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist gettext-domain="qscreen">
+  <enum id="org.gnome.shell.extensions.qscreen.Assignment">
+    <value value="0" nick="position"/>
+    <value value="1" nick="recent"/>
+  </enum>
+
+  <schema id="org.gnome.shell.extensions.qscreen"
+          path="/org/gnome/shell/extensions/qscreen/">
+    <key name="gap" type="i">
+      <range min="0" max="100"/>
+      <default>8</default>
+      <summary>Gap between windows</summary>
+    </key>
+    <key name="outer-gap" type="i">
+      <range min="0" max="100"/>
+      <default>8</default>
+      <summary>Gap between windows and screen edges</summary>
+    </key>
+    <key name="assignment" enum="org.gnome.shell.extensions.qscreen.Assignment">
+      <default>'position'</default>
+      <summary>How windows are assigned to cells</summary>
+      <description>"position" keeps each window close to where it already is; "recent" fills cells starting from the most recently used window.</description>
+    </key>
+    <key name="include-minimized" type="b">
+      <default>false</default>
+      <summary>Also tile minimized windows</summary>
+    </key>
+    <key name="show-panel-icon" type="b">
+      <default>true</default>
+      <summary>Show the icon in the top bar</summary>
+    </key>
+    <key name="custom-layouts" type="as">
+      <default>[]</default>
+      <summary>User-defined layouts</summary>
+      <description>Layout specs such as "rows:2,1,3", "cols:1,3" or "rects:0,0,1,2;1,0,1,1;1,1,1,1@Name".</description>
+    </key>
+    <key name="favorite-layouts" type="as">
+      <default>[]</default>
+      <summary>Favourite layouts</summary>
+      <description>Ids (specs) of the layouts starred in the picker; shown in its Custom tab.</description>
+    </key>
+    <key name="hot-corner" type="s">
+      <choices>
+        <choice value="off"/>
+        <choice value="top-left"/>
+        <choice value="top-right"/>
+        <choice value="bottom-left"/>
+        <choice value="bottom-right"/>
+      </choices>
+      <default>'bottom-right'</default>
+      <summary>Hot corner opening the layout picker</summary>
+    </key>
+    <key name="hot-corner-delay" type="i">
+      <range min="0" max="2000"/>
+      <default>300</default>
+      <summary>Time in ms the pointer must rest in the corner</summary>
+    </key>
+    <key name="monitor-layouts" type="a{ss}">
+      <default>{}</default>
+      <summary>Last applied layout for each monitor</summary>
+      <description>Maps a monitor index to the id (spec) of the layout last applied on it.</description>
+    </key>
+
+    <key name="grid-2x2" type="as"><default>["&lt;Super&gt;&lt;Alt&gt;2"]</default><summary>Apply 2x2 grid</summary></key>
+    <key name="grid-3x3" type="as"><default>["&lt;Super&gt;&lt;Alt&gt;3"]</default><summary>Apply 3x3 grid</summary></key>
+    <key name="grid-4x4" type="as"><default>["&lt;Super&gt;&lt;Alt&gt;4"]</default><summary>Apply 4x4 grid</summary></key>
+    <key name="next-layout" type="as"><default>["&lt;Super&gt;&lt;Alt&gt;Right"]</default><summary>Next layout</summary></key>
+    <key name="prev-layout" type="as"><default>["&lt;Super&gt;&lt;Alt&gt;Left"]</default><summary>Previous layout</summary></key>
+    <key name="retile" type="as"><default>["&lt;Super&gt;&lt;Alt&gt;r"]</default><summary>Re-apply current layout</summary></key>
+    <key name="show-overlay" type="as"><default>["&lt;Super&gt;&lt;Alt&gt;g"]</default><summary>Show layout picker</summary></key>
+  </schema>
+</schemalist>
