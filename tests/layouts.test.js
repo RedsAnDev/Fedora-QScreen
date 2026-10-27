@@ -91,4 +91,20 @@ assert.equal(parseLayout('rects:0,0,1,1@a@b;c').name, 'a@b;c');
 assert.equal(labelOf('rects:0,0,1,1@a@b;c'), 'a@b;c');
 assert.equal(labelOf('grid:2x2'), '');
 
+// A declared grid size is kept even when the zones do not fill it
+l = parseLayout('rects:12x6;0,0,9,2');
+assert.equal(l.cols, 12);
+assert.equal(l.rows, 6);
+assert.deepEqual(l.cells, [cell(0, 0, 9, 2)]);
+assert.equal(formatRects([cell(0, 0, 9, 2)], '', {cols: 12, rows: 6}), 'rects:12x6;0,0,9,2');
+assert.equal(formatRects([cell(0, 0, 9, 2)], 'A', {cols: 12, rows: 6}), 'rects:12x6;0,0,9,2@A');
+// ...but nothing extra is written when the zones already span the grid
+assert.equal(formatRects([cell(0, 0, 2, 1)], '', {cols: 2, rows: 1}), 'rects:0,0,2,1');
+// a zone sticking out of the declared size wins over it
+assert.equal(parseLayout('rects:2x2;0,0,3,1').cols, 3);
+assert.equal(parseLayout('rects:99x99;0,0,1,1'), null);
+l = parseLayout(formatRects([cell(1, 1, 2, 1)], 'x', {cols: 5, rows: 4}));
+assert.equal(l.cols, 5);
+assert.equal(l.rows, 4);
+
 console.log('layouts: all tests passed');

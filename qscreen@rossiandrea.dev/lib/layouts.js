@@ -8,7 +8,8 @@
 //   grid:CxR            uniform grid, e.g. grid:3x2
 //   rows:a,b,c          rows holding a, b, c windows, e.g. rows:2,1,3
 //   cols:a,b,c          columns holding a, b, c windows, e.g. cols:1,3
-//   rects:c,r,w,h;...   explicit rectangles in grid units
+//   rects:c,r,w,h;...   explicit rectangles in grid units; a leading "CxR;"
+//                       fixes the grid size, e.g. rects:12x6;0,0,9,2
 //
 // Any spec may end with "@Label" to give it a display name.
 
@@ -92,16 +93,23 @@ export function parseLayout(spec) {
 
     if (kind === 'rects') {
         const cells = [];
+        let declared = [0, 0];
         for (const chunk of arg.split(';')) {
             if (chunk.trim() === '')
                 continue;
+            const size = /^(\d+)\s*x\s*(\d+)$/i.exec(chunk.trim());
+            if (size) {
+                declared = [Number(size[1]), Number(size[2])];
+                continue;
+            }
             const n = toInts(chunk, ',');
             if (!n || n.length !== 4 || n[2] < 1 || n[3] < 1)
                 return null;
             cells.push({col: n[0], row: n[1], w: n[2], h: n[3]});
         }
-        const cols = Math.max(0, ...cells.map(c => c.col + c.w));
-        const rows = Math.max(0, ...cells.map(c => c.row + c.h));
+        // Without a declared size the grid is just big enough for the zones.
+        const cols = Math.max(declared[0], ...cells.map(c => c.col + c.w));
+        const rows = Math.max(declared[1], ...cells.map(c => c.row + c.h));
         return build(id, label || `Custom (${cells.length})`, cols, rows, cells);
     }
 
@@ -122,13 +130,18 @@ export function labelOf(spec) {
 /**
  * Spec string (a `rects:` layout) for a list of cells, the inverse of
  * parseLayout(). Cells are written in reading order, which is also the order
- * windows are assigned to them.
+ * windows are assigned to them. `size` ({cols, rows}) is the grid the cells
+ * were drawn on; it is only written when it is larger than the cells need.
  */
-export function formatRects(cells, label = '') {
-    const body = [...cells]
+export function formatRects(cells, label = '', size = null) {
+    const zones = [...cells]
         .sort(readingOrder)
-        .map(c => `${c.col},${c.row},${c.w},${c.h}`)
-        .join(';');
+        .map(c => `${c.col},${c.row},${c.w},${c.h}`);
+    const needCols = Math.max(0, ...cells.map(c => c.col + c.w));
+    const needRows = Math.max(0, ...cells.map(c => c.row + c.h));
+    if (size && (size.cols > needCols || size.rows > needRows))
+        zones.unshift(`${size.cols}x${size.rows}`);
+    const body = zones.join(';');
     const name = label.trim();
     return name ? `rects:${body}@${name}` : `rects:${body}`;
 }

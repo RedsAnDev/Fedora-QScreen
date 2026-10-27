@@ -29,6 +29,7 @@ Un layout è una stringa (che ne è anche l'id):
 | `cols:a,b,c` | colonne con a, b, c finestre, es. `cols:1,3` |
 | `rects:c,r,w,h;…` | rettangoli espliciti in unità di griglia |
 
+In `rects:` un primo elemento `CxR;` fissa la dimensione della griglia anche se le zone non la riempiono, es. `rects:12x6;0,0,9,2`.
 Aggiungi `@Nome` per dare un'etichetta: `rects:0,0,1,2;1,0,1,1;1,1,1,1@Principale + 2`.
 I layout personalizzati si disegnano dalle preferenze: si sceglie il numero di colonne e righe, poi si trascina sulla griglia per creare una zona (un clic su una zona la rimuove). La stringa corrispondente è visibile e modificabile in *Text format*. Le zone vengono riempite dalle finestre nell'ordine numerato.
 

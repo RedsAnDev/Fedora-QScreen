@@ -320,7 +320,7 @@ export function editLayout(parent, spec, onSave) {
         if (!typing) {
             writing = true;
             specRow.set_text(editor.cells.length > 0
-                ? formatRects(editor.cells, nameRow.get_text())
+                ? formatRects(editor.cells, nameRow.get_text(), editor)
                 : '');
             writing = false;
         }
@@ -377,7 +377,7 @@ export function editLayout(parent, spec, onSave) {
     });
 
     save.connect('clicked', () => {
-        onSave(formatRects(editor.cells, nameRow.get_text()));
+        onSave(formatRects(editor.cells, nameRow.get_text(), editor));
         dialog.close();
     });
 
