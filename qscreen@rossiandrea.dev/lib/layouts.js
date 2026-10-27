@@ -108,6 +108,31 @@ export function parseLayout(spec) {
     return null;
 }
 
+/** Whether two cells share at least one grid unit. */
+export function overlaps(a, b) {
+    return a.col < b.col + b.w && b.col < a.col + a.w &&
+        a.row < b.row + b.h && b.row < a.row + a.h;
+}
+
+/** The optional "@Label" part of a spec ('' when there is none). */
+export function labelOf(spec) {
+    return spec.split('@').slice(1).join('@').trim();
+}
+
+/**
+ * Spec string (a `rects:` layout) for a list of cells, the inverse of
+ * parseLayout(). Cells are written in reading order, which is also the order
+ * windows are assigned to them.
+ */
+export function formatRects(cells, label = '') {
+    const body = [...cells]
+        .sort(readingOrder)
+        .map(c => `${c.col},${c.row},${c.w},${c.h}`)
+        .join(';');
+    const name = label.trim();
+    return name ? `rects:${body}@${name}` : `rects:${body}`;
+}
+
 /**
  * Pixel rectangle for a cell inside a work area.
  * `gap` separates neighbouring cells, `outer` is the margin to the area edge.

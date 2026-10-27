@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 import Adw from 'gi://Adw';
+import GLib from 'gi://GLib';
 import Gtk from 'gi://Gtk';
 
-import {ExtensionPreferences, gettext as _} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
+import {ExtensionPreferences, gettext as _, ngettext} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
+import {editLayout, layoutPreview} from './lib/layoutEditor.js';
 import {parseLayout} from './lib/layouts.js';
 
 const SHORTCUTS = [
@@ -31,7 +33,7 @@ export default class QScreenPreferences extends ExtensionPreferences {
 
         page.add(this._spacingGroup(settings));
         page.add(this._behaviourGroup(settings));
-        page.add(this._customLayoutsGroup(settings));
+        page.add(this._customLayoutsGroup(settings, window));
         page.add(this._shortcutsGroup(settings));
     }
 
@@ -96,10 +98,10 @@ export default class QScreenPreferences extends ExtensionPreferences {
         return group;
     }
 
-    _customLayoutsGroup(settings) {
+    _customLayoutsGroup(settings, window) {
         const group = new Adw.PreferencesGroup({
             title: _('Custom layouts'),
-            description: _('One layout per row. Examples: cols:1,2 · rows:2,1,3 · grid:3x2 · rects:0,0,1,2;1,0,1,1;1,1,1,1@My layout'),
+            description: _('Draw your own zone layouts. They show up in the panel menu and in the picker.'),
         });
 
         const addButton = new Gtk.Button({
@@ -110,42 +112,83 @@ export default class QScreenPreferences extends ExtensionPreferences {
         });
         group.set_header_suffix(addButton);
 
-        let rows = [];
-        const save = () => {
-            const specs = rows
-                .map(r => parseLayout(r.get_text())?.id)
-                .filter(id => id !== undefined);
-            settings.set_strv('custom-layouts', specs);
-        };
+        // Editing changes a layout's id (its spec): keep what refers to it.
+        const rename = (oldId, newId) => {
+            const favorites = settings.get_strv('favorite-layouts')
+                .map(id => (id === oldId ? newId : id))
+                .filter(id => id !== null);
+            settings.set_strv('favorite-layouts', favorites);
 
-        const addRow = text => {
-            const row = new Adw.EntryRow({title: _('Layout spec'), text});
-            const remove = new Gtk.Button({
-                icon_name: 'user-trash-symbolic',
-                valign: Gtk.Align.CENTER,
-                css_classes: ['flat'],
-            });
-            row.add_suffix(remove);
-            row.connect('changed', () => {
-                const ok = row.get_text() === '' || parseLayout(row.get_text()) !== null;
-                if (ok)
-                    row.remove_css_class('error');
+            const perMonitor = settings.get_value('monitor-layouts').recursiveUnpack();
+            for (const [monitor, id] of Object.entries(perMonitor)) {
+                if (id !== oldId)
+                    continue;
+                if (newId === null)
+                    delete perMonitor[monitor];
                 else
-                    row.add_css_class('error');
-            });
-            row.connect('apply', save);
-            row.set_show_apply_button(true);
-            remove.connect('clicked', () => {
-                group.remove(row);
-                rows = rows.filter(r => r !== row);
-                save();
-            });
-            rows.push(row);
-            group.add(row);
+                    perMonitor[monitor] = newId;
+            }
+            settings.set_value('monitor-layouts', new GLib.Variant('a{ss}', perMonitor));
         };
 
-        settings.get_strv('custom-layouts').forEach(addRow);
-        addButton.connect('clicked', () => addRow(''));
+        const store = specs => settings.set_strv('custom-layouts', [...new Set(specs)]);
+
+        let rows = [];
+        const rebuild = () => {
+            rows.forEach(r => group.remove(r));
+            rows = [];
+
+            settings.get_strv('custom-layouts').forEach((spec, index) => {
+                const layout = parseLayout(spec);
+                const row = new Adw.ActionRow({
+                    title: GLib.markup_escape_text(layout ? layout.name : spec, -1),
+                    subtitle: layout
+                        ? ngettext('%d zone', '%d zones', layout.cells.length).format(layout.cells.length)
+                        : _('Invalid layout'),
+                });
+                if (layout)
+                    row.add_prefix(layoutPreview(layout));
+
+                if (layout) {
+                    const edit = new Gtk.Button({
+                        icon_name: 'document-edit-symbolic',
+                        valign: Gtk.Align.CENTER,
+                        css_classes: ['flat'],
+                        tooltip_text: _('Edit layout'),
+                    });
+                    edit.connect('clicked', () => editLayout(window, spec, newSpec => {
+                        const specs = settings.get_strv('custom-layouts');
+                        specs[index] = newSpec;
+                        store(specs);
+                        if (newSpec !== spec)
+                            rename(spec, newSpec);
+                    }));
+                    row.add_suffix(edit);
+                }
+
+                const remove = new Gtk.Button({
+                    icon_name: 'user-trash-symbolic',
+                    valign: Gtk.Align.CENTER,
+                    css_classes: ['flat'],
+                    tooltip_text: _('Remove layout'),
+                });
+                remove.connect('clicked', () => {
+                    store(settings.get_strv('custom-layouts').filter((_s, i) => i !== index));
+                    rename(spec, null);
+                });
+                row.add_suffix(remove);
+
+                rows.push(row);
+                group.add(row);
+            });
+        };
+
+        addButton.connect('clicked', () => editLayout(window, null, newSpec =>
+            store([...settings.get_strv('custom-layouts'), newSpec])));
+
+        const changed = settings.connect('changed::custom-layouts', rebuild);
+        window.connect('close-request', () => settings.disconnect(changed));
+        rebuild();
         return group;
     }
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Run with: node tests/layouts.test.js
 import assert from 'node:assert/strict';
-import {BUILTIN_SECTIONS, cellRect, parseLayout, sortByPosition} from '../qscreen@rossiandrea.dev/lib/layouts.js';
+import {BUILTIN_SECTIONS, cellRect, formatRects, labelOf, overlaps, parseLayout, sortByPosition} from '../qscreen@rossiandrea.dev/lib/layouts.js';
 
 const area = {x: 0, y: 30, width: 1200, height: 600};
 
@@ -71,5 +71,24 @@ const wins = [
     {id: 'tr', r: {x: 700, y: 40, width: 400, height: 200}},
 ];
 assert.deepEqual(sortByPosition(wins, w => w.r, l, area).map(w => w.id), ['tl', 'tr', 'bl', 'br']);
+
+// Overlap detection
+const cell = (col, row, w, h) => ({col, row, w, h});
+assert.ok(overlaps(cell(0, 0, 2, 2), cell(1, 1, 2, 2)));
+assert.ok(!overlaps(cell(0, 0, 1, 2), cell(1, 0, 1, 2)), 'touching edges do not overlap');
+assert.ok(!overlaps(cell(0, 0, 1, 1), cell(0, 1, 1, 1)));
+
+// formatRects round-trips through parseLayout, in reading order
+const drawn = [cell(1, 1, 1, 1), cell(0, 0, 1, 2), cell(1, 0, 1, 1)];
+const spec = formatRects(drawn, '  Side  ');
+assert.equal(spec, 'rects:0,0,1,2;1,0,1,1;1,1,1,1@Side');
+l = parseLayout(spec);
+assert.equal(l.id, spec);
+assert.deepEqual(l.cells, [cell(0, 0, 1, 2), cell(1, 0, 1, 1), cell(1, 1, 1, 1)]);
+assert.equal(formatRects(drawn), 'rects:0,0,1,2;1,0,1,1;1,1,1,1');
+assert.equal(formatRects([cell(0, 0, 1, 1)], 'a@b;c'), 'rects:0,0,1,1@a@b;c');
+assert.equal(parseLayout('rects:0,0,1,1@a@b;c').name, 'a@b;c');
+assert.equal(labelOf('rects:0,0,1,1@a@b;c'), 'a@b;c');
+assert.equal(labelOf('grid:2x2'), '');
 
 console.log('layouts: all tests passed');
