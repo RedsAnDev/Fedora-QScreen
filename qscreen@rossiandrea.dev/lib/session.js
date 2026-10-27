@@ -65,6 +65,7 @@ export class SessionManager {
             if (session.workspace === workspace && session.monitor === monitor)
                 this._end(session);
         }
+        console.log(`[qscreen] start linked=${this._options().linked} zones=${zones.length} windows=${zones.filter(z => z.window).length}`);
         if (!this._options().linked || !zones.some(z => z.window))
             return;
 
@@ -133,6 +134,7 @@ export class SessionManager {
     // A window leaves the group: closed, moved away, or dropped outside it.
     _release(win) {
         const entry = this._watched.get(win);
+        console.log(`[qscreen] release watched=${!!entry} mode=${this._options().onClose}`);
         if (!entry)
             return;
         const {session} = entry;
@@ -153,6 +155,7 @@ export class SessionManager {
         }
         if (mode === 'expand') {
             const grown = expandInto(session.zones, index);
+            console.log(`[qscreen] expand index=${index} grown=${grown ? 'yes' : 'null'}`);
             if (grown) {
                 const before = new Map(session.zones.map(z => [z.window, z]));
                 session.zones = grown;

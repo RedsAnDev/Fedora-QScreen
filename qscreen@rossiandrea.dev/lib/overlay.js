@@ -80,6 +80,7 @@ export class LayoutOverlay {
         this._onToggleFavorite = onToggleFavorite;
         this._getPlan = getPlan;
         this._ghosts = [];
+        this._plans = new Map();
         this._grabbed = null;
         this._tiles = [];
         this._index = 0;
@@ -385,7 +386,13 @@ export class LayoutOverlay {
     _showGhosts(layout) {
         if (!this._actor)
             return;
-        const {monitor, cells} = this._getPlan(layout);
+        // Windows do not change while the picker holds the grab: plan once per layout.
+        let plan = this._plans.get(layout.id);
+        if (!plan) {
+            plan = this._getPlan(layout);
+            this._plans.set(layout.id, plan);
+        }
+        const {monitor, cells} = plan;
         if (Main.layoutManager.monitors[monitor] !== this._monitor)
             return;
 
@@ -403,8 +410,15 @@ export class LayoutOverlay {
             const y = cell.rect.y - this._monitor.y;
             const {width, height} = cell.rect;
 
-            ghost._inner.destroy_all_children();
-            if (cell.window) {
+            // Same window at the same width as last time: keep the icon and label.
+            const unchanged = ghost._window === cell.window && ghost._width === width;
+            ghost._window = cell.window;
+            ghost._width = width;
+
+            if (unchanged) {
+                // nothing to rebuild
+            } else if (cell.window) {
+                ghost._inner.destroy_all_children();
                 ghost.remove_style_class_name('qscreen-ghost-empty');
                 const app = tracker.get_window_app(cell.window);
                 const icon = app?.create_icon_texture(56) ??
@@ -420,6 +434,7 @@ export class LayoutOverlay {
                 label.set_style(`max-width: ${Math.max(40, width - 24)}px;`);
                 ghost._inner.add_child(label);
             } else {
+                ghost._inner.destroy_all_children();
                 ghost.add_style_class_name('qscreen-ghost-empty');
             }
 
@@ -455,8 +470,17 @@ export class LayoutOverlay {
             opacity: 0,
             duration: 100,
             mode: Clutter.AnimationMode.EASE_IN_QUAD,
-            onComplete: () => this._destroy(actor),
+            onComplete: () => {
+                if (this._actor === actor)
+                    this._destroy(actor);
+            },
         });
+    }
+
+    /** Tear down at once, skipping the fade (extension being disabled). */
+    destroy() {
+        this._actor?.remove_all_transitions();
+        this._destroy();
     }
 
     _destroy(actor = this._actor) {

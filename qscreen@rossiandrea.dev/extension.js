@@ -29,15 +29,31 @@ class QScreenIndicator extends PanelMenu.Button {
     _init(controller) {
         super._init(0.0, 'QScreen');
         this._controller = controller;
+        this._items = new Map();
         this.add_child(new St.Icon({
             icon_name: 'view-grid-symbolic',
             style_class: 'system-status-icon',
         }));
         this.rebuild();
+        // The pointer may have moved to another monitor since the last apply.
+        this.menu.connect('open-state-changed', (_menu, open) => {
+            if (open)
+                this.setCurrent(this._controller.currentId());
+        });
+    }
+
+    // Move the dot to the active layout without rebuilding the menu.
+    setCurrent(id) {
+        for (const [layoutId, item] of this._items) {
+            item.setOrnament(layoutId === id
+                ? PopupMenu.Ornament.DOT
+                : PopupMenu.Ornament.NONE);
+        }
     }
 
     rebuild() {
         this.menu.removeAll();
+        this._items.clear();
         const current = this._controller.currentId();
 
         for (const section of this._controller.sections()) {
@@ -50,6 +66,7 @@ class QScreenIndicator extends PanelMenu.Button {
                     ? PopupMenu.Ornament.DOT
                     : PopupMenu.Ornament.NONE);
                 item.connect('activate', () => this._controller.apply(layout));
+                this._items.set(layout.id, item);
                 sub.menu.addMenuItem(item);
             }
             this.menu.addMenuItem(sub);
@@ -68,6 +85,9 @@ export default class QScreenExtension extends Extension {
         this._overlay = null;
         this._signals = [];
         this._shortcuts = [];
+        this._builtin = null;
+        this._custom = null;
+        this._monitorLayouts = null;
 
         this._sessions = new SessionManager(() => this._sessionOptions());
         this._monitorsChanged = Main.layoutManager.connect('monitors-changed',
@@ -78,7 +98,13 @@ export default class QScreenExtension extends Extension {
         this._syncIndicatorVisibility();
 
         this._connect('show-panel-icon', () => this._syncIndicatorVisibility());
-        this._connect('custom-layouts', () => this._indicator.rebuild());
+        this._connect('custom-layouts', () => {
+            this._custom = null;
+            this._indicator.rebuild();
+        });
+        this._connect('monitor-layouts', () => {
+            this._monitorLayouts = null;
+        });
         this._connect('linked-windows', () => {
             if (!this._settings.get_boolean('linked-windows'))
                 this._sessions.clear();
@@ -109,7 +135,7 @@ export default class QScreenExtension extends Extension {
         cancelPending();
         this._hotCorner?.destroy();
         this._hotCorner = null;
-        this._overlay?.close();
+        this._overlay?.destroy();
         this._indicator?.destroy();
 
         this._shortcuts = null;
@@ -118,6 +144,9 @@ export default class QScreenExtension extends Extension {
         this._indicator = null;
         this._sessions = null;
         this._settings = null;
+        this._builtin = null;
+        this._custom = null;
+        this._monitorLayouts = null;
     }
 
     // Object handed to the indicator so it does not reach into the extension.
@@ -146,17 +175,26 @@ export default class QScreenExtension extends Extension {
         this._indicator.visible = this._settings.get_boolean('show-panel-icon');
     }
 
+    // Parsed once; rebuilt only when the custom-layouts setting changes.
     _customLayouts() {
-        return this._settings.get_strv('custom-layouts')
+        this._custom ??= this._settings.get_strv('custom-layouts')
             .map(parseLayout)
             .filter(l => l !== null);
+        return this._custom;
+    }
+
+    _builtinLayouts() {
+        this._builtin ??= BUILTIN_SECTIONS.map(s =>
+            s.specs.map(parseLayout).filter(l => l !== null));
+        return this._builtin;
     }
 
     _sections() {
-        const sections = BUILTIN_SECTIONS.map(s => ({
+        const builtin = this._builtinLayouts();
+        const sections = BUILTIN_SECTIONS.map((s, i) => ({
             id: s.id,
             title: sectionTitle(s.id) ?? s.title,
-            layouts: s.specs.map(parseLayout).filter(l => l !== null),
+            layouts: builtin[i],
         }));
         sections.push({id: 'custom', title: _('Custom'), layouts: this._customLayouts()});
         return sections;
@@ -205,13 +243,18 @@ export default class QScreenExtension extends Extension {
 
     // Each monitor remembers its own layout; the pointer decides which one acts.
     // Keyed by connector so it survives hotplug; older entries used the index.
+    _monitorMap() {
+        this._monitorLayouts ??= this._settings.get_value('monitor-layouts').recursiveUnpack();
+        return this._monitorLayouts;
+    }
+
     _lastLayoutId(monitor = targetMonitor()) {
-        const map = this._settings.get_value('monitor-layouts').recursiveUnpack();
+        const map = this._monitorMap();
         return map[monitorKey(monitor)] ?? map[String(monitor)] ?? '';
     }
 
     _setLastLayoutId(monitor, id) {
-        const map = this._settings.get_value('monitor-layouts').recursiveUnpack();
+        const map = {...this._monitorMap()};
         delete map[String(monitor)];
         map[monitorKey(monitor)] = id;
         this._settings.set_value('monitor-layouts', new GLib.Variant('a{ss}', map));
@@ -250,7 +293,7 @@ export default class QScreenExtension extends Extension {
         const {count: placed, zones} = tile(layout, {...this._tileOptions(), monitor});
         this._sessions.start(global.workspace_manager.get_active_workspace(), monitor, layout, zones);
         this._setLastLayoutId(monitor, layout.id);
-        this._indicator.rebuild();
+        this._indicator.setCurrent(layout.id);
 
         const cells = layout.cells.length;
         const note = placed < cells ? ` (${placed}/${cells})` : '';
