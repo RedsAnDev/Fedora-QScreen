@@ -30,7 +30,7 @@ Un layout è una stringa (che ne è anche l'id):
 | `rects:c,r,w,h;…` | rettangoli espliciti in unità di griglia |
 
 Aggiungi `@Nome` per dare un'etichetta: `rects:0,0,1,2;1,0,1,1;1,1,1,1@Principale + 2`.
-I layout personalizzati si aggiungono dalle preferenze.
+I layout personalizzati si disegnano dalle preferenze: si sceglie il numero di colonne e righe, poi si trascina sulla griglia per creare una zona (un clic su una zona la rimuove). La stringa corrispondente è visibile e modificabile in *Text format*. Le zone vengono riempite dalle finestre nell'ordine numerato.
 
 ## Sviluppo
 
