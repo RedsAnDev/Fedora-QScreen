@@ -14,7 +14,8 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import {BUILTIN_SECTIONS, parseLayout} from './lib/layouts.js';
 import {LayoutOverlay} from './lib/overlay.js';
 import {HotCorner} from './lib/hotcorner.js';
-import {cancelPending, plan, targetMonitor, tile} from './lib/tiler.js';
+import {SessionManager} from './lib/session.js';
+import {cancelPending, monitorKey, plan, targetMonitor, tile} from './lib/tiler.js';
 
 // Resolved lazily: gettext is only usable once the extension is running.
 const sectionTitle = id => ({
@@ -68,12 +69,20 @@ export default class QScreenExtension extends Extension {
         this._signals = [];
         this._shortcuts = [];
 
+        this._sessions = new SessionManager(() => this._sessionOptions());
+        this._monitorsChanged = Main.layoutManager.connect('monitors-changed',
+            () => this._sessions.clear());
+
         this._indicator = new QScreenIndicator(this._controller());
         Main.panel.addToStatusArea(this.uuid, this._indicator);
         this._syncIndicatorVisibility();
 
         this._connect('show-panel-icon', () => this._syncIndicatorVisibility());
         this._connect('custom-layouts', () => this._indicator.rebuild());
+        this._connect('linked-windows', () => {
+            if (!this._settings.get_boolean('linked-windows'))
+                this._sessions.clear();
+        });
 
         this._syncHotCorner();
         this._connect('hot-corner', () => this._syncHotCorner());
@@ -95,6 +104,8 @@ export default class QScreenExtension extends Extension {
             Main.wm.removeKeybinding(name);
         for (const id of this._signals)
             this._settings.disconnect(id);
+        Main.layoutManager.disconnect(this._monitorsChanged);
+        this._sessions.destroy();
         cancelPending();
         this._hotCorner?.destroy();
         this._hotCorner = null;
@@ -105,6 +116,7 @@ export default class QScreenExtension extends Extension {
         this._signals = null;
         this._overlay = null;
         this._indicator = null;
+        this._sessions = null;
         this._settings = null;
     }
 
@@ -192,14 +204,16 @@ export default class QScreenExtension extends Extension {
     }
 
     // Each monitor remembers its own layout; the pointer decides which one acts.
+    // Keyed by connector so it survives hotplug; older entries used the index.
     _lastLayoutId(monitor = targetMonitor()) {
         const map = this._settings.get_value('monitor-layouts').recursiveUnpack();
-        return map[monitor] ?? '';
+        return map[monitorKey(monitor)] ?? map[String(monitor)] ?? '';
     }
 
     _setLastLayoutId(monitor, id) {
         const map = this._settings.get_value('monitor-layouts').recursiveUnpack();
-        map[monitor] = id;
+        delete map[String(monitor)];
+        map[monitorKey(monitor)] = id;
         this._settings.set_value('monitor-layouts', new GLib.Variant('a{ss}', map));
     }
 
@@ -209,6 +223,15 @@ export default class QScreenExtension extends Extension {
             outerGap: this._settings.get_int('outer-gap'),
             assignment: this._settings.get_string('assignment'),
             includeMinimized: this._settings.get_boolean('include-minimized'),
+        };
+    }
+
+    _sessionOptions() {
+        return {
+            gap: this._settings.get_int('gap'),
+            outerGap: this._settings.get_int('outer-gap'),
+            linked: this._settings.get_boolean('linked-windows'),
+            onClose: this._settings.get_string('on-close'),
         };
     }
 
@@ -224,7 +247,8 @@ export default class QScreenExtension extends Extension {
 
     _apply(layout) {
         const monitor = targetMonitor();
-        const placed = tile(layout, {...this._tileOptions(), monitor});
+        const {count: placed, zones} = tile(layout, {...this._tileOptions(), monitor});
+        this._sessions.start(global.workspace_manager.get_active_workspace(), monitor, layout, zones);
         this._setLastLayoutId(monitor, layout.id);
         this._indicator.rebuild();
 

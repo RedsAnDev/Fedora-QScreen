@@ -26,6 +26,21 @@
       <default>false</default>
       <summary>Also tile minimized windows</summary>
     </key>
+    <key name="linked-windows" type="b">
+      <default>true</default>
+      <summary>Keep tiled windows linked</summary>
+      <description>After a layout is applied, closing a window frees its space for the others, dragging the edge between two windows resizes both, and dropping a window on another swaps them.</description>
+    </key>
+    <key name="on-close" type="s">
+      <choices>
+        <choice value="expand"/>
+        <choice value="retile"/>
+        <choice value="keep"/>
+      </choices>
+      <default>'expand'</default>
+      <summary>What happens when a tiled window closes</summary>
+      <description>"expand" lets the neighbours grow over the freed space, "retile" rearranges the remaining windows in a balanced layout, "keep" leaves the space empty.</description>
+    </key>
     <key name="show-panel-icon" type="b">
       <default>true</default>
       <summary>Show the icon in the top bar</summary>
@@ -59,7 +74,7 @@
     <key name="monitor-layouts" type="a{ss}">
       <default>{}</default>
       <summary>Last applied layout for each monitor</summary>
-      <description>Maps a monitor index to the id (spec) of the layout last applied on it.</description>
+      <description>Maps a monitor (its connector name, e.g. DP-1) to the id (spec) of the layout last applied on it.</description>
     </key>
 
     <key name="grid-2x2" type="as"><default>["&lt;Super&gt;&lt;Alt&gt;2"]</default><summary>Apply 2x2 grid</summary></key>

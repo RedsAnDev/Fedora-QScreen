@@ -34,4 +34,7 @@
 - [ ] Drag & drop su zone (snap)
 - [x] Layout per monitor (monitor sotto il mouse)
 - [ ] Layout diversi per workspace
-- [ ] Chiave del layout per monitor: ora è l'indice, non il connettore (può cambiare con hotplug)
+- [x] Chiave del layout per monitor: ora è il connettore (fallback sull'indice per le vecchie voci)
+- [x] Finestre collegate: espansione dei vicini alla chiusura, ridimensionamento del divisore, scambio al rilascio
+- [ ] Provare le finestre collegate in una sessione reale (nested): app con dimensione minima, più monitor, hotplug
+- [ ] Nuove finestre aperte dopo il layout: farle entrare nella zona libera

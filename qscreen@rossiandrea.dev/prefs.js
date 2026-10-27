@@ -2,6 +2,7 @@
 
 import Adw from 'gi://Adw';
 import GLib from 'gi://GLib';
+import GObject from 'gi://GObject';
 import Gtk from 'gi://Gtk';
 
 import {ExtensionPreferences, gettext as _, ngettext} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
@@ -66,6 +67,27 @@ export default class QScreenPreferences extends ExtensionPreferences {
         combo.connect('notify::selected', () =>
             settings.set_string('assignment', modes[combo.selected]));
         group.add(combo);
+
+        const linked = new Adw.SwitchRow({
+            title: _('Keep tiled windows linked'),
+            subtitle: _('Dragging the edge between two windows resizes both; dropping a window on another swaps them.'),
+        });
+        settings.bind('linked-windows', linked, 'active', 0);
+        group.add(linked);
+
+        const closeModes = ['expand', 'retile', 'keep'];
+        const onClose = new Adw.ComboRow({
+            title: _('When a tiled window closes'),
+            subtitle: _('Neighbours grow over the space, the rest are re-tiled, or the space stays empty.'),
+            model: Gtk.StringList.new([
+                _('Neighbours expand'), _('Re-tile the remaining'), _('Leave empty'),
+            ]),
+            selected: Math.max(0, closeModes.indexOf(settings.get_string('on-close'))),
+        });
+        onClose.connect('notify::selected', () =>
+            settings.set_string('on-close', closeModes[onClose.selected]));
+        linked.bind_property('active', onClose, 'sensitive', GObject.BindingFlags.SYNC_CREATE);
+        group.add(onClose);
 
         const minimized = new Adw.SwitchRow({title: _('Also tile minimized windows')});
         settings.bind('include-minimized', minimized, 'active', 0);

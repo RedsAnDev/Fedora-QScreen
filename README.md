@@ -18,6 +18,16 @@ Estensione GNOME Shell (49/50, Wayland e X11) che riorganizza le finestre aperte
 Le finestre tilate sono quelle normali dell'area di lavoro attiva, sul monitor in cui si trova il mouse. Ogni monitor ricorda il proprio ultimo layout, quindi applicarne uno (o usare `Super+Alt+→/←`, `Super+Alt+R`) non tocca gli altri monitor.
 Se le finestre sono più delle celle, quelle in eccesso restano dove sono.
 
+## Finestre collegate
+
+Dopo aver applicato un layout, le finestre che ha sistemato restano collegate tra loro (si disattiva dalle preferenze con *Keep tiled windows linked*):
+
+- **Chiusura.** Quando una finestra si chiude, esce dalla zona o cambia area di lavoro o monitor, lo spazio libero si gestisce secondo *When a tiled window closes*: i vicini si espandono (predefinito), le restanti si riorganizzano in un layout bilanciato, oppure lo spazio resta vuoto.
+- **Ridimensionamento.** Trascinando il bordo tra due finestre si ridimensionano anche le vicine: il divisore si sposta per intero. Nessuna finestra scende sotto una dimensione minima.
+- **Trascinamento.** Rilasciando una finestra su un'altra zona le due si scambiano; rilasciandola dentro la propria torna a posto; rilasciandola fuori da ogni zona esce dal gruppo.
+
+Il collegamento vale finché non si applica un altro layout sullo stesso monitor e area di lavoro. Le finestre minimizzate restano nella loro zona. Le finestre aperte dopo il layout non entrano nel gruppo.
+
 ## Layout
 
 Un layout è una stringa (che ne è anche l'id):
@@ -36,7 +46,8 @@ I layout personalizzati si disegnano dalle preferenze: si sceglie il numero di c
 ## Sviluppo
 
 ```sh
-make test      # test della logica dei layout + validazione schema
+make test      # test della logica dei layout, della geometria + validazione schema
+make test-shell  # test della sessione con finestre finte (richiede gjs e la typelib di Mutter)
 make pack      # dist/qscreen@rossiandrea.dev.shell-extension.zip
 make install   # installa per l'utente corrente (poi riavvia la sessione su Wayland)
 make nested    # prova in una shell annidata

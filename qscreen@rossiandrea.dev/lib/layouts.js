@@ -16,6 +16,9 @@
 const MAX_COLS = 24;
 const MAX_ROWS = 24;
 
+/** Float-tolerant equality: zones can sit at fractional grid positions once edges are dragged. */
+export const near = (a, b) => Math.abs(a - b) < 1e-6;
+
 const gcd = (a, b) => (b === 0 ? a : gcd(b, a % b));
 const lcm = (a, b) => (a / gcd(a, b)) * b;
 
@@ -155,10 +158,10 @@ export function cellRect(layout, cell, area, gap = 0, outer = 0) {
     const unitH = area.height / layout.rows;
     const half = gap / 2;
 
-    const left = cell.col === 0 ? outer : half;
-    const top = cell.row === 0 ? outer : half;
-    const right = cell.col + cell.w === layout.cols ? outer : half;
-    const bottom = cell.row + cell.h === layout.rows ? outer : half;
+    const left = near(cell.col, 0) ? outer : half;
+    const top = near(cell.row, 0) ? outer : half;
+    const right = near(cell.col + cell.w, layout.cols) ? outer : half;
+    const bottom = near(cell.row + cell.h, layout.rows) ? outer : half;
 
     const x1 = Math.round(area.x + cell.col * unitW + left);
     const y1 = Math.round(area.y + cell.row * unitH + top);

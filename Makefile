@@ -3,13 +3,20 @@ VERSION   := $(shell sed -n 's/.*"version-name": "\(.*\)".*/\1/p' $(UUID)/metada
 SCHEMA    := $(UUID)/schemas/org.gnome.shell.extensions.qscreen.gschema.xml
 DIST      := dist
 
-.PHONY: all test schemas pack install uninstall tarball rpm clean nested
+.PHONY: all test test-shell schemas pack install uninstall tarball rpm clean nested
 
 all: pack
 
 test:
 	node tests/layouts.test.js
+	node tests/reflow.test.js
 	glib-compile-schemas --strict --dry-run $(UUID)/schemas
+
+# Needs gjs and the Mutter typelib, so it is not part of `make test`.
+MUTTER_TYPELIB ?= $(firstword $(wildcard /usr/lib64/mutter-* /usr/lib/mutter-* /usr/lib/*/mutter-*))
+
+test-shell:
+	GI_TYPELIB_PATH=$(MUTTER_TYPELIB) gjs -m tests/session.test.js
 
 schemas:
 	glib-compile-schemas $(UUID)/schemas
