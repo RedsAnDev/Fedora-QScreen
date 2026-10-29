@@ -17,6 +17,7 @@ Estensione GNOME Shell (49/50, Wayland e X11) che riorganizza le finestre aperte
 
 Le finestre tilate sono quelle normali dell'area di lavoro attiva, sul monitor in cui si trova il mouse. Ogni monitor ricorda il proprio ultimo layout, quindi applicarne uno (o usare `Super+Alt+→/←`, `Super+Alt+R`) non tocca gli altri monitor.
 Se le finestre sono più delle celle, quelle in eccesso restano dove sono.
+Applicando un layout le finestre minimizzate (se abilitato), a schermo intero o massimizzate vengono ripristinate per entrare nella loro zona.
 
 ## Finestre collegate
 

@@ -42,9 +42,9 @@ nested: install
 # Source tarball for rpmbuild / COPR.
 tarball:
 	mkdir -p $(DIST)
-	tar czf $(DIST)/qscreen-$(VERSION).tar.gz \
-	    --transform 's,^,qscreen-$(VERSION)/,' \
-	    $(UUID) tests LICENSE README.md Makefile
+	git archive --format=tar.gz --prefix=qscreen-$(VERSION)/ \
+	    -o $(DIST)/qscreen-$(VERSION).tar.gz \
+	    HEAD -- $(UUID) tests LICENSE README.md Makefile
 
 rpm: tarball
 	rpmbuild -ba packaging/qscreen.spec \

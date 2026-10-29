@@ -141,7 +141,8 @@ export default class QScreenPreferences extends ExtensionPreferences {
                 .filter(id => id !== null);
             settings.set_strv('favorite-layouts', favorites);
 
-            const perMonitor = settings.get_value('monitor-layouts').recursiveUnpack();
+            const perMonitor = Object.assign(Object.create(null),
+                settings.get_value('monitor-layouts').recursiveUnpack());
             for (const [monitor, id] of Object.entries(perMonitor)) {
                 if (id !== oldId)
                     continue;

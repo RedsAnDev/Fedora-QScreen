@@ -254,7 +254,9 @@ export default class QScreenExtension extends Extension {
     // Each monitor remembers its own layout; the pointer decides which one acts.
     // Keyed by connector so it survives hotplug; older entries used the index.
     _monitorMap() {
-        this._monitorLayouts ??= this._settings.get_value('monitor-layouts').recursiveUnpack();
+        // No prototype: connector names come from outside and must stay plain keys.
+        this._monitorLayouts ??= Object.assign(Object.create(null),
+            this._settings.get_value('monitor-layouts').recursiveUnpack());
         return this._monitorLayouts;
     }
 
@@ -264,7 +266,7 @@ export default class QScreenExtension extends Extension {
     }
 
     _setLastLayoutId(monitor, id) {
-        const map = {...this._monitorMap()};
+        const map = Object.assign(Object.create(null), this._monitorMap());
         delete map[String(monitor)];
         map[monitorKey(monitor)] = id;
         this._settings.set_value('monitor-layouts', new GLib.Variant('a{ss}', map));
