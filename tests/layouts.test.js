@@ -107,4 +107,11 @@ l = parseLayout(formatRects([cell(1, 1, 2, 1)], 'x', {cols: 5, rows: 4}));
 assert.equal(l.cols, 5);
 assert.equal(l.rows, 4);
 
+// Too many zones are rejected instead of exhausting the stack or the picker
+const manyZones = n => `rects:${Array(n).fill('0,0,1,1').join(';')}`;
+assert.equal(parseLayout(manyZones(576)).cells.length, 576);
+assert.equal(parseLayout(manyZones(577)), null);
+assert.doesNotThrow(() => parseLayout(manyZones(200000)));
+assert.equal(parseLayout(manyZones(200000)), null);
+
 console.log('layouts: all tests passed');

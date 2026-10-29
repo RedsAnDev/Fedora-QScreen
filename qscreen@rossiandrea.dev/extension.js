@@ -17,6 +17,16 @@ import {HotCorner} from './lib/hotcorner.js';
 import {SessionManager} from './lib/session.js';
 import {cancelPending, monitorKey, plan, targetMonitor, tile} from './lib/tiler.js';
 
+// A bad spec in dconf must never break the menu: treat it as invalid.
+function safeParse(spec) {
+    try {
+        return parseLayout(spec);
+    } catch (e) {
+        console.warn(`[qscreen] ignoring layout "${spec}": ${e.message}`);
+        return null;
+    }
+}
+
 // Resolved lazily: gettext is only usable once the extension is running.
 const sectionTitle = id => ({
     grids: _('Grids'),
@@ -178,14 +188,14 @@ export default class QScreenExtension extends Extension {
     // Parsed once; rebuilt only when the custom-layouts setting changes.
     _customLayouts() {
         this._custom ??= this._settings.get_strv('custom-layouts')
-            .map(parseLayout)
+            .map(safeParse)
             .filter(l => l !== null);
         return this._custom;
     }
 
     _builtinLayouts() {
         this._builtin ??= BUILTIN_SECTIONS.map(s =>
-            s.specs.map(parseLayout).filter(l => l !== null));
+            s.specs.map(safeParse).filter(l => l !== null));
         return this._builtin;
     }
 

@@ -58,11 +58,17 @@
 .qscreen-tile:hover,
 .qscreen-tile:focus {
   background-color: rgba(255, 255, 255, 0.10);
+  border-color: rgba(255, 255, 255, 0.55);
 }
 
 .qscreen-tile:checked,
 .qscreen-tile:active {
   border-color: #62a0ea;
+}
+
+.qscreen-tile:checked:hover,
+.qscreen-tile:checked:focus {
+  border-color: #ffffff;
 }
 
 .qscreen-tile-label {

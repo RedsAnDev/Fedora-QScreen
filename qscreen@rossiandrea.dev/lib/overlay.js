@@ -35,26 +35,6 @@ function buildPreview(layout) {
     return preview;
 }
 
-// Buttons are wired by hand (press + release) so a click never depends on
-// St.Button's own grab handling, which does not play well with the modal grab.
-function onClick(actor, callback) {
-    let pressed = false;
-    actor.connect('button-press-event', () => {
-        pressed = true;
-        return Clutter.EVENT_STOP;
-    });
-    actor.connect('button-release-event', (_actor, event) => {
-        if (pressed)
-            callback(event.get_button());
-        pressed = false;
-        return Clutter.EVENT_STOP;
-    });
-    actor.connect('leave-event', () => {
-        pressed = false;
-        return Clutter.EVENT_PROPAGATE;
-    });
-}
-
 /**
  * Full-screen picker with a tab for the standard layouts and one for the
  * user's own (plus favourites). Mouse: click to apply, right click to toggle
@@ -134,7 +114,7 @@ export class LayoutOverlay {
                 reactive: true,
                 track_hover: true,
             });
-            onClick(button, () => this._selectTab(i));
+            button.connect('clicked', () => this._selectTab(i));
             tabBar.add_child(button);
             return button;
         });
@@ -178,10 +158,7 @@ export class LayoutOverlay {
 
     _render(focusId) {
         this._tabButtons.forEach((button, i) => {
-            if (i === this._tab)
-                button.add_style_pseudo_class('checked');
-            else
-                button.remove_style_pseudo_class('checked');
+            button.checked = i === this._tab;
         });
 
         this._content.destroy_all_children();
@@ -230,9 +207,10 @@ export class LayoutOverlay {
             can_focus: true,
             reactive: true,
             track_hover: true,
+            button_mask: St.ButtonMask.ONE | St.ButtonMask.THREE,
         });
-        if (layout.id === this._currentId)
-            tile.add_style_pseudo_class('checked');
+        // St.Button owns the :checked pseudo-class; set the property, not the class.
+        tile.checked = layout.id === this._currentId;
         const box = new St.BoxLayout({vertical: true});
         box.add_child(buildPreview(layout));
         box.add_child(new St.Label({
@@ -252,9 +230,8 @@ export class LayoutOverlay {
             this._index = this._tiles.indexOf(entry);
             this._showGhosts(layout);
         });
-        // Keyboard activation (Enter/Space) comes through St.Button as 'clicked'.
-        tile.connect('clicked', () => this._pick(layout));
-        onClick(tile, button => {
+        // Mouse and keyboard (Enter/Space, button 0) both arrive as 'clicked'.
+        tile.connect('clicked', (_tile, button) => {
             if (button === Clutter.BUTTON_SECONDARY)
                 this._onToggleFavorite(layout);
             else

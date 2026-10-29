@@ -15,6 +15,8 @@
 
 const MAX_COLS = 24;
 const MAX_ROWS = 24;
+// A zone needs at least one grid unit, so more cells than units is pointless.
+const MAX_CELLS = MAX_COLS * MAX_ROWS;
 
 /** Float-tolerant equality: zones can sit at fractional grid positions once edges are dragged. */
 export const near = (a, b) => Math.abs(a - b) < 1e-6;
@@ -108,11 +110,13 @@ export function parseLayout(spec) {
             const n = toInts(chunk, ',');
             if (!n || n.length !== 4 || n[2] < 1 || n[3] < 1)
                 return null;
+            if (cells.length >= MAX_CELLS)
+                return null;
             cells.push({col: n[0], row: n[1], w: n[2], h: n[3]});
         }
         // Without a declared size the grid is just big enough for the zones.
-        const cols = Math.max(declared[0], ...cells.map(c => c.col + c.w));
-        const rows = Math.max(declared[1], ...cells.map(c => c.row + c.h));
+        const cols = cells.reduce((m, c) => Math.max(m, c.col + c.w), declared[0]);
+        const rows = cells.reduce((m, c) => Math.max(m, c.row + c.h), declared[1]);
         return build(id, label || `Custom (${cells.length})`, cols, rows, cells);
     }
 
