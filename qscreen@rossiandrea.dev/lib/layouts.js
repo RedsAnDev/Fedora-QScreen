@@ -193,13 +193,13 @@ export function sortByPosition(items, rectOf, layout, area) {
     return keyed.map(k => k.item);
 }
 
-const squares = [2, 3, 4].map(n => `grid:${n}x${n}`);
+const squares = [2, 3, 4, 5].map(n => `grid:${n}x${n}`);
 
 // One row, N columns.
-const lines = [2, 3, 4].map(n => `grid:${n}x1`);
+const lines = [2, 3, 4, 5].map(n => `grid:${n}x1`);
 
 // Two columns: one window on the left, two or three stacked on the right.
-const composite = ['cols:1,2', 'cols:1,3'];
+const composite = ['cols:1,2', 'cols:1,3', 'cols:1,4', 'cols:1,5'];
 
 /** Built-in layouts, grouped for menus and the overlay. */
 export const BUILTIN_SECTIONS = [

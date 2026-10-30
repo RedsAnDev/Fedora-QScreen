@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 import Clutter from 'gi://Clutter';
+import GLib from 'gi://GLib';
 import Pango from 'gi://Pango';
 import Shell from 'gi://Shell';
 import St from 'gi://St';
@@ -51,8 +52,14 @@ export class LayoutOverlay {
      * @param {(layout: object) => boolean} params.isFavorite
      * @param {(layout: object) => void} params.onToggleFavorite
      * @param {(layout: object) => object} params.getPlan preview of where windows would go
+     * @param {?string} params.tabId tab to open on (the one used last); falls back
+     *     to the tab holding the current layout
+     * @param {(id: string) => void} params.onTabChange told when the user switches tab
      */
-    constructor({getTabs, currentId, onPick, isFavorite, onToggleFavorite, getPlan}) {
+    constructor({getTabs, currentId, onPick, isFavorite, onToggleFavorite, getPlan,
+        tabId = null, onTabChange = () => {}}) {
+        this._onTabChange = onTabChange;
+        this._revealId = 0;
         this._getTabs = getTabs;
         this._currentId = currentId;
         this._onPick = onPick;
@@ -67,8 +74,10 @@ export class LayoutOverlay {
         this._done = false;
 
         this._tabs = getTabs();
-        this._tab = Math.max(0, this._tabs.findIndex(t =>
-            t.sections.some(s => s.layouts.some(l => l.id === currentId))));
+        const remembered = this._tabs.findIndex(t => t.id === tabId);
+        const holding = this._tabs.findIndex(t =>
+            t.sections.some(s => s.layouts.some(l => l.id === currentId)));
+        this._tab = Math.max(0, remembered >= 0 ? remembered : holding);
 
         const monitor = Main.layoutManager.monitors[targetMonitor()] ??
             Main.layoutManager.currentMonitor;
@@ -83,18 +92,19 @@ export class LayoutOverlay {
             height: monitor.height,
             opacity: 0,
         });
-        this._actor.connect('button-press-event', () => {
-            this.close();
-            return Clutter.EVENT_STOP;
-        });
         this._actor.connect('key-press-event', (_actor, event) =>
             this._onKey(event.get_key_symbol()));
+        // Pointer input is hit-tested by hand. Under the modal grab the press
+        // reaches this actor but never completes St.Button's click nor the
+        // background handler, so hover, click and click-away are all done here.
+        this._pressed = null;
+        this._actor.connect('captured-event', (_actor, event) => this._onPointer(event));
 
         // Ghost zones drawn over the desktop, below the picker panel.
         this._ghostLayer = new St.Widget({layout_manager: new Clutter.FixedLayout()});
         this._actor.add_child(this._ghostLayer);
 
-        const panel = new St.BoxLayout({
+        const panel = this._panel = new St.BoxLayout({
             style_class: 'qscreen-panel',
             vertical: true,
             x_align: Clutter.ActorAlign.CENTER,
@@ -124,7 +134,7 @@ export class LayoutOverlay {
             overlay_scrollbars: true,
             hscrollbar_policy: St.PolicyType.NEVER,
             vscrollbar_policy: St.PolicyType.AUTOMATIC,
-            height: Math.round(monitor.height * 0.3),
+            height: Math.round(monitor.height * 0.45),
         });
         this._content = new St.BoxLayout({vertical: true, x_expand: true});
         this._scroll.add_child(this._content);
@@ -199,6 +209,21 @@ export class LayoutOverlay {
         if (index < 0)
             index = 0;
         this._focus(index);
+        this._revealLater();
+    }
+
+    // Nothing is allocated yet on the first render (or right after a tab switch),
+    // so scrolling the focused tile into view has to wait for the layout.
+    _revealLater() {
+        if (this._revealId)
+            GLib.source_remove(this._revealId);
+        this._revealId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 60, () => {
+            this._revealId = 0;
+            const entry = this._tiles[this._index];
+            if (entry && this._actor)
+                ensureActorVisibleInScrollView(this._scroll, entry.actor);
+            return GLib.SOURCE_REMOVE;
+        });
     }
 
     _makeTile(layout) {
@@ -209,8 +234,9 @@ export class LayoutOverlay {
             track_hover: true,
             button_mask: St.ButtonMask.ONE | St.ButtonMask.THREE,
         });
-        // St.Button owns the :checked pseudo-class; set the property, not the class.
-        tile.checked = layout.id === this._currentId;
+        // A class of our own: St.Button resets the :checked pseudo-class itself.
+        if (layout.id === this._currentId)
+            tile.add_style_class_name('qscreen-tile-current');
         const box = new St.BoxLayout({vertical: true});
         box.add_child(buildPreview(layout));
         box.add_child(new St.Label({
@@ -252,18 +278,114 @@ export class LayoutOverlay {
         const entry = this._tiles[index];
         if (!entry)
             return;
+        this._tiles.forEach((t, i) => {
+            if (i === index)
+                t.actor.add_style_class_name('qscreen-tile-active');
+            else
+                t.actor.remove_style_class_name('qscreen-tile-active');
+        });
         this._index = index;
-        if (grab)
+        if (grab) {
             entry.actor.grab_key_focus();
-        else
+            ensureActorVisibleInScrollView(this._scroll, entry.actor);
+        } else {
             this._showGhosts(entry.layout);
-        ensureActorVisibleInScrollView(this._scroll, entry.actor);
+        }
+    }
+
+    // What is under the pointer: a tab, a visible tile, the rest of the panel, or outside it.
+    _targetAt(x, y) {
+        const inside = actor => {
+            const r = actor.get_transformed_extents();
+            return x >= r.origin.x && x < r.origin.x + r.size.width &&
+                y >= r.origin.y && y < r.origin.y + r.size.height;
+        };
+        if (!inside(this._panel))
+            return {kind: 'outside', key: 'outside'};
+        const tab = this._tabButtons.findIndex(inside);
+        if (tab >= 0)
+            return {kind: 'tab', index: tab, key: `tab:${tab}`};
+        if (inside(this._scroll)) {
+            const tile = this._tiles.findIndex(t => inside(t.actor));
+            if (tile >= 0)
+                return {kind: 'tile', index: tile, key: `tile:${tile}`};
+        }
+        // Extents can disagree with what is painted (scrolled or clipped content):
+        // ask the stage what it would pick there before giving up.
+        for (let a = global.stage.get_actor_at_pos(Clutter.PickMode.REACTIVE, x, y);
+            a && a !== this._actor; a = a.get_parent()) {
+            const tabIndex = this._tabButtons.indexOf(a);
+            if (tabIndex >= 0)
+                return {kind: 'tab', index: tabIndex, key: `tab:${tabIndex}`};
+            const tileIndex = this._tiles.findIndex(t => t.actor === a);
+            if (tileIndex >= 0)
+                return {kind: 'tile', index: tileIndex, key: `tile:${tileIndex}`};
+        }
+        return {kind: 'panel', key: 'panel'};
+    }
+
+    _onPointer(event) {
+        const type = event.type();
+        if (type !== Clutter.EventType.MOTION &&
+            type !== Clutter.EventType.BUTTON_PRESS &&
+            type !== Clutter.EventType.BUTTON_RELEASE)
+            return Clutter.EVENT_PROPAGATE;
+
+        const [x, y] = event.get_coords();
+        const target = this._targetAt(x, y);
+        if (type === Clutter.EventType.BUTTON_PRESS) {
+            // TEMP diagnostics for the Standard-tab mouse problem.
+            const r = a => {
+                const e = a.get_transformed_extents();
+                return `${Math.round(e.origin.x)},${Math.round(e.origin.y)} ` +
+                    `${Math.round(e.size.width)}x${Math.round(e.size.height)}`;
+            };
+            console.log(`[qscreen-debug] press at ${Math.round(x)},${Math.round(y)} -> ${target.key} ` +
+                `tab=${this._tabs[this._tab].id} tiles=${this._tiles.length} panel=${r(this._panel)} ` +
+                `scroll=${r(this._scroll)} tile0=${this._tiles[0] ? r(this._tiles[0].actor) : '-'}`);
+        }
+
+        if (type === Clutter.EventType.MOTION) {
+            if (target.key !== this._lastMotionKey) {
+                this._lastMotionKey = target.key;
+                console.log(`[qscreen-debug] motion ${Math.round(x)},${Math.round(y)} -> ${target.key} index=${this._index}`);
+            }
+            if (target.kind === 'tile' && target.index !== this._index)
+                this._focus(target.index, false);
+            return Clutter.EVENT_PROPAGATE;
+        }
+        // The empty part of the panel (scrollbar, hint) keeps its own handling.
+        if (target.kind === 'panel')
+            return Clutter.EVENT_PROPAGATE;
+
+        if (type === Clutter.EventType.BUTTON_PRESS) {
+            this._pressed = target.key;
+            return Clutter.EVENT_STOP;
+        }
+        const clicked = this._pressed === target.key;
+        this._pressed = null;
+        if (!clicked)
+            return Clutter.EVENT_STOP;
+
+        if (target.kind === 'outside') {
+            this.close();
+        } else if (target.kind === 'tab') {
+            this._selectTab(target.index);
+        } else {
+            const layout = this._tiles[target.index].layout;
+            if (event.get_button() === Clutter.BUTTON_SECONDARY)
+                this._onToggleFavorite(layout);
+            else
+                this._pick(layout);
+        }
+        return Clutter.EVENT_STOP;
     }
 
     _selectTab(index) {
         if (index === this._tab || index < 0 || index >= this._tabs.length)
             return;
         this._tab = index;
+        this._onTabChange(this._tabs[index].id);
         this._render(this._currentId);
     }
 
@@ -461,6 +583,10 @@ export class LayoutOverlay {
     }
 
     _destroy(actor = this._actor) {
+        if (this._revealId) {
+            GLib.source_remove(this._revealId);
+            this._revealId = 0;
+        }
         if (this._grabbed) {
             Main.popModal(this._grabbed);
             this._grabbed = null;

@@ -93,6 +93,7 @@ export default class QScreenExtension extends Extension {
     enable() {
         this._settings = this.getSettings();
         this._overlay = null;
+        this._lastTab = null;
         this._signals = [];
         this._shortcuts = [];
         this._builtin = null;
@@ -309,7 +310,12 @@ export default class QScreenExtension extends Extension {
 
         const cells = layout.cells.length;
         const note = placed < cells ? ` (${placed}/${cells})` : '';
-        Main.osdWindowManager.show(-1, null, `${layout.name}${note}`, null);
+        // GNOME 50 split show() (all monitors) from showOne(monitor, ...).
+        const osd = Main.osdWindowManager;
+        if (osd.showOne)
+            osd.showOne(monitor, null, `${layout.name}${note}`, null);
+        else
+            osd.show(monitor, null, `${layout.name}${note}`, null);
     }
 
     _applySpec(spec) {
@@ -349,6 +355,10 @@ export default class QScreenExtension extends Extension {
             isFavorite: layout => this._favoriteIds().includes(layout.id),
             onToggleFavorite: layout => this._toggleFavorite(layout),
             getPlan: layout => plan(layout, this._tileOptions()),
+            tabId: this._lastTab,
+            onTabChange: id => {
+                this._lastTab = id;
+            },
         });
     }
 }
