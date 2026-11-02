@@ -15,6 +15,9 @@ import {targetMonitor} from './tiler.js';
 
 const PREVIEW_W = 132;
 const PREVIEW_H = 84;
+const TILE_W = PREVIEW_W + 20; // preview + padding + border
+const TILE_GAP = 10;
+const PANEL_SLACK = 48; // panel padding and scrollbar
 
 function buildPreview(layout) {
     const preview = new St.Widget({
@@ -104,6 +107,7 @@ export class LayoutOverlay {
         this._ghostLayer = new St.Widget({layout_manager: new Clutter.FixedLayout()});
         this._actor.add_child(this._ghostLayer);
 
+        this._panelWidth = Math.min(monitor.width - 80, 820);
         const panel = this._panel = new St.BoxLayout({
             style_class: 'qscreen-panel',
             vertical: true,
@@ -111,7 +115,7 @@ export class LayoutOverlay {
             y_align: Clutter.ActorAlign.END,
             reactive: true,
             style: 'margin-bottom: 28px;',
-            width: Math.min(monitor.width - 80, 820),
+            width: this._panelWidth,
         });
         // Clicks inside the panel must not close the overlay.
         panel.connect('button-press-event', () => Clutter.EVENT_STOP);
@@ -175,6 +179,7 @@ export class LayoutOverlay {
         this._tiles = [];
 
         const tab = this._tabs[this._tab];
+        const columns = Math.max(1, Math.floor((this._panelWidth - PANEL_SLACK + TILE_GAP) / (TILE_W + TILE_GAP)));
         for (const section of tab.sections) {
             if (section.layouts.length === 0)
                 continue;
@@ -182,17 +187,15 @@ export class LayoutOverlay {
                 style_class: 'qscreen-section-title',
                 text: section.title,
             }));
-            const flow = new St.Widget({
-                x_expand: true,
-                layout_manager: new Clutter.FlowLayout({
-                    orientation: Clutter.Orientation.HORIZONTAL,
-                    column_spacing: 10,
-                    row_spacing: 10,
-                }),
-            });
-            for (const layout of section.layouts)
-                flow.add_child(this._makeTile(layout));
-            this._content.add_child(flow);
+            // Rows laid out by hand: a FlowLayout inside the scroll view can be
+            // given a zero height once the content overflows, which leaves the
+            // tiles (and their highlight) with no box to paint in.
+            for (let i = 0; i < section.layouts.length; i += columns) {
+                const row = new St.BoxLayout({style: `spacing: ${TILE_GAP}px; margin-bottom: ${TILE_GAP}px;`});
+                for (const layout of section.layouts.slice(i, i + columns))
+                    row.add_child(this._makeTile(layout));
+                this._content.add_child(row);
+            }
         }
 
         if (this._tiles.length === 0) {
@@ -333,23 +336,7 @@ export class LayoutOverlay {
 
         const [x, y] = event.get_coords();
         const target = this._targetAt(x, y);
-        if (type === Clutter.EventType.BUTTON_PRESS) {
-            // TEMP diagnostics for the Standard-tab mouse problem.
-            const r = a => {
-                const e = a.get_transformed_extents();
-                return `${Math.round(e.origin.x)},${Math.round(e.origin.y)} ` +
-                    `${Math.round(e.size.width)}x${Math.round(e.size.height)}`;
-            };
-            console.log(`[qscreen-debug] press at ${Math.round(x)},${Math.round(y)} -> ${target.key} ` +
-                `tab=${this._tabs[this._tab].id} tiles=${this._tiles.length} panel=${r(this._panel)} ` +
-                `scroll=${r(this._scroll)} tile0=${this._tiles[0] ? r(this._tiles[0].actor) : '-'}`);
-        }
-
         if (type === Clutter.EventType.MOTION) {
-            if (target.key !== this._lastMotionKey) {
-                this._lastMotionKey = target.key;
-                console.log(`[qscreen-debug] motion ${Math.round(x)},${Math.round(y)} -> ${target.key} index=${this._index}`);
-            }
             if (target.kind === 'tile' && target.index !== this._index)
                 this._focus(target.index, false);
             return Clutter.EVENT_PROPAGATE;
