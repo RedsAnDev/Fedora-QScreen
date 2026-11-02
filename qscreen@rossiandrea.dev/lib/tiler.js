@@ -123,7 +123,17 @@ export function plan(layout, opts) {
     const area = workArea(monitor, workspace);
 
     let windows;
-    if (opts.assignment === 'recent') {
+    if (opts.order) {
+        // Keep the windows in the order they already have; newcomers go last.
+        const eligible = (opts.assignment === 'recent'
+            ? global.display.get_tab_list(Meta.TabList.NORMAL, workspace)
+            : workspace.list_windows())
+            .filter(w => isTileable(w, monitor, opts.includeMinimized));
+        const known = opts.order.filter(w => eligible.includes(w));
+        const rest = sortByPosition(eligible.filter(w => !known.includes(w)),
+            w => w.get_frame_rect(), layout, area);
+        windows = [...known, ...rest];
+    } else if (opts.assignment === 'recent') {
         windows = global.display
             .get_tab_list(Meta.TabList.NORMAL, workspace)
             .filter(w => isTileable(w, monitor, opts.includeMinimized));

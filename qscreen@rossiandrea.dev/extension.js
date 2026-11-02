@@ -94,6 +94,7 @@ export default class QScreenExtension extends Extension {
         this._settings = this.getSettings();
         this._overlay = null;
         this._lastTab = null;
+        this._order = new Map();   // monitor -> windows in reading order, for cycling
         this._signals = [];
         this._shortcuts = [];
         this._builtin = null;
@@ -158,6 +159,7 @@ export default class QScreenExtension extends Extension {
         this._builtin = null;
         this._custom = null;
         this._monitorLayouts = null;
+        this._order = null;
     }
 
     // Object handed to the indicator so it does not reach into the extension.
@@ -301,10 +303,16 @@ export default class QScreenExtension extends Extension {
             corner, this._settings.get_int('hot-corner-delay'), () => this._showOverlay());
     }
 
-    _apply(layout) {
+    // `keepOrder`: windows stay in the same relative order as in the current layout.
+    _apply(layout, keepOrder = false) {
         const monitor = targetMonitor();
-        const {count: placed, zones} = tile(layout, {...this._tileOptions(), monitor});
-        this._sessions.start(global.workspace_manager.get_active_workspace(), monitor, layout, zones);
+        const workspace = global.workspace_manager.get_active_workspace();
+        const order = keepOrder
+            ? (this._sessions.order(workspace, monitor) ?? this._order.get(monitor) ?? null)
+            : null;
+        const {count: placed, zones} = tile(layout, {...this._tileOptions(), monitor, order});
+        this._order.set(monitor, zones.filter(z => z.window).map(z => z.window));
+        this._sessions.start(workspace, monitor, layout, zones);
         this._setLastLayoutId(monitor, layout.id);
         this._indicator.setCurrent(layout.id);
 
@@ -327,7 +335,7 @@ export default class QScreenExtension extends Extension {
     _retile() {
         const layout = parseLayout(this._lastLayoutId());
         if (layout)
-            this._apply(layout);
+            this._apply(layout, true);
         else
             this._applySpec('grid:2x2');
     }
@@ -340,7 +348,7 @@ export default class QScreenExtension extends Extension {
         const next = index < 0
             ? (step > 0 ? 0 : all.length - 1)
             : (index + step + all.length) % all.length;
-        this._apply(all[next]);
+        this._apply(all[next], true);
     }
 
     _showOverlay() {

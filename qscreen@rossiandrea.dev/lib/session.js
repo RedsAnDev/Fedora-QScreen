@@ -53,6 +53,22 @@ export class SessionManager {
     }
 
     /**
+     * The windows of the session on this workspace and monitor, in reading
+     * order (row by row), or null when there is none.
+     */
+    order(workspace, monitor) {
+        for (const session of this._sessions) {
+            if (session.workspace === workspace && session.monitor === monitor) {
+                return session.zones
+                    .filter(z => z.window)
+                    .sort((a, b) => a.row - b.row || a.col - b.col)
+                    .map(z => z.window);
+            }
+        }
+        return null;
+    }
+
+    /**
      * Start linking the windows just placed by a layout.
      *
      * @param {Meta.Workspace} workspace
