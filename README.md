@@ -1,6 +1,6 @@
 # QScreen
 
-Estensione GNOME Shell (49/50, Wayland e X11) che riorganizza le finestre aperte in griglie da 2x2 fino a 4x4 e in combinazioni miste.
+Estensione GNOME Shell (49/50/51, Wayland e X11) che riorganizza le finestre aperte in griglie da 2x2 fino a 4x4 e in combinazioni miste.
 
 ## Uso
 
